@@ -1,75 +1,46 @@
-# React + TypeScript + Vite
+# ▶️ YouTube Me
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Google Takeout의 YouTube 데이터를 분석하여  
+> **"나는 YouTube를 어떻게 사용하는 사람인가?"**를 알아보는 프로젝트
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🎯 프로젝트 소개
 
-## React Compiler
+YouTube에는 우리가 직접 의식하지 못하는 동안
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- 무엇을 검색했는지
+- 어떤 영상을 봤는지
+- 어떤 채널을 구독했는지
+- 언제 YouTube를 사용하는지
 
-## Expanding the ESLint configuration
+등의 데이터가 계속 쌓이고 있습니다.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**YouTube Me**는 사용자가 Google Takeout에서 가져온
+YouTube 데이터를 활용하여 이러한 이용 패턴을 분석하고,
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+최종적으로 사용자를 여러 가지 **YouTube 이용 유형**으로
+분류하는 것을 목표로 합니다.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+예를 들어 최종적으로 다음과 같은 유형을 만들 수 있습니다.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- 🧭 탐험형
+- 🎯 집중형
+- 📚 정보수집형
+- 🎬 몰입형
+- 🔁 반복형
 
-```
+※ 위 유형은 현재 예시이며, 실제 데이터 분석 결과에 따라 변경됩니다.
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 💡 핵심 아이디어
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+기존의 사람 유형 테스트는
 
-```
+```text
+혈액형
+   ↓
+MBTI
+   ↓
+YouTube 이용 유형

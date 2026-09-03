@@ -80,7 +80,26 @@ npm run build
 
 ## 배포
 
-Vite로 빌드한 `dist/` 결과물을 GitHub Pages에 배포합니다. 프로젝트 사이트 경로를 위해 `vite.config.ts`의 base 경로는 `/Youtube_me/`로 설정되어 있습니다.
+GitHub Actions가 `main` 브랜치에 push될 때마다 Vite를 빌드하고 GitHub Pages에 자동 배포합니다.
+
+1. 변경 사항을 GitHub 저장소의 `main` 브랜치에 push합니다.
+
+```bash
+git add .
+git commit -m "Deploy YouTube Recap"
+git push origin main
+```
+
+2. GitHub 저장소에서 `Settings` → `Pages`로 이동합니다.
+3. `Build and deployment`의 `Source`를 `GitHub Actions`로 선택합니다.
+4. `Actions` 탭에서 `Deploy to GitHub Pages` workflow가 성공할 때까지 기다립니다.
+5. 배포가 완료되면 다음 주소에서 앱을 확인합니다.
+
+```text
+https://joseph-ai-py.github.io/Youtube_me/
+```
+
+프로젝트 사이트 경로를 위해 `vite.config.ts`의 base 경로는 `/Youtube_me/`로 설정되어 있습니다. Google Takeout ZIP과 압축 해제된 원본 데이터는 `.gitignore`에 등록되어 GitHub에 올라가지 않습니다.
 
 ## 개인정보 보호
 

@@ -84,7 +84,7 @@ export function parseWatchHistory(raw: string): WatchData {
     });
   }
 
-  return { videos, communityPosts, unclassifiedCount, missingUrlCount, channelNames: new Map() };
+  return { videos, communityPosts, unclassifiedCount, missingUrlCount, channelNames: new Map(), subscriptionCount: 0 };
 }
 
 export function parseSearchHistory(raw: string): SearchRecord[] {
@@ -117,17 +117,20 @@ export async function parseTakeoutZip(file: Blob): Promise<{ watch: WatchData; s
   const searchRaw = searchFile ? await zip.files[searchFile].async('string') : null;
   const subscriptionFile = Object.keys(zip.files).find((path) => path.endsWith('구독정보/구독정보.csv'));
   const channelNames = new Map<string, string>();
+  let subscriptionCount = 0;
   if (subscriptionFile) {
     const csv = await zip.files[subscriptionFile].async('string');
     for (const line of csv.replace(/^\uFEFF/, '').split(/\r?\n/).slice(1)) {
       const columns = line.match(/(?:^|,)\s*(?:"([^"]*)"|([^,]*))/g)?.map((column) => column.replace(/^,\s*|^\s*"|"\s*$/g, '')) ?? [];
       const channelId = columns[0]?.trim();
       const channelTitle = columns[2]?.trim();
+      if (channelId) subscriptionCount += 1;
       if (channelId && channelTitle) channelNames.set(channelId, channelTitle);
     }
   }
   const watch = parseWatchHistory(watchRaw);
   watch.channelNames = channelNames;
+  watch.subscriptionCount = subscriptionCount;
   return {
     watch,
     searches: searchRaw ? parseSearchHistory(searchRaw) : [],

@@ -1,4 +1,13 @@
-import type { RecapStats, SearchRecord, WatchData, WatchRecord } from './types';
+import type {
+  DailyActivity,
+  DateCoverage,
+  RecapStats,
+  RhythmCell,
+  SearchRecord,
+  WatchData,
+  WatchRecord,
+  WatchSession,
+} from './types';
 
 const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
@@ -29,6 +38,55 @@ function diversity(channelCounts: Map<string, number>): number {
     return sum - probability * Math.log2(probability);
   }, 0);
   return entropy / Math.log2(values.length);
+}
+
+function dateRange(records: { time: Date }[]): { start: Date | null; end: Date | null } {
+  if (!records.length) return { start: null, end: null };
+  const sorted = [...records].sort((a, b) => a.time.getTime() - b.time.getTime());
+  return { start: sorted[0].time, end: sorted.at(-1)?.time ?? sorted[0].time };
+}
+
+function inclusiveDays(start: Date | null, end: Date | null): number {
+  if (!start || !end) return 0;
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function buildRhythm(videos: WatchRecord[]): RhythmCell[] {
+  const counts = new Map<string, number>();
+  for (const video of videos) {
+    const key = `${video.time.getDay()}:${video.time.getHours()}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return Array.from({ length: 7 }, (_, day) => Array.from({ length: 24 }, (_, hour) => ({
+    day,
+    hour,
+    count: counts.get(`${day}:${hour}`) ?? 0,
+  }))).flat();
+}
+
+function buildDailyActivity(videos: WatchRecord[]): DailyActivity[] {
+  return [...countBy(videos, (video) => video.time.toISOString().slice(0, 10)).entries()]
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildSessions(videos: WatchRecord[]): WatchSession[] {
+  const sorted = [...videos].sort((a, b) => a.time.getTime() - b.time.getTime());
+  const sessions: WatchSession[] = [];
+  const sessionGap = 15 * 60 * 1000;
+
+  for (const video of sorted) {
+    const current = sessions.at(-1);
+    if (!current || video.time.getTime() - current.end.getTime() > sessionGap) {
+      sessions.push({ start: video.time, end: video.time, videoCount: 1, durationMinutes: 0 });
+      continue;
+    }
+    current.end = video.time;
+    current.videoCount += 1;
+    current.durationMinutes = (current.end.getTime() - current.start.getTime()) / 60000;
+  }
+
+  return sessions;
 }
 
 export function calculateStats(data: WatchData, searches: SearchRecord[] = []): RecapStats {
@@ -81,6 +139,21 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
   const topMusicVideo = topMusicItem
     ? musicVideos.find((video) => (video.videoId ?? video.title) === topMusicItem.name)
     : null;
+  const watchRange = dateRange(videos);
+  const searchRange = dateRange(searches);
+  const dailyActivity = buildDailyActivity(videos);
+  const sessions = buildSessions(videos);
+  const coverage: DateCoverage = {
+    searchStart: searchRange.start,
+    searchEnd: searchRange.end,
+    watchStart: watchRange.start,
+    watchEnd: watchRange.end,
+    searchDays: inclusiveDays(searchRange.start, searchRange.end),
+    watchDays: inclusiveDays(watchRange.start, watchRange.end),
+    watchChannelCoverage: total ? videos.filter((video) => video.channelId).length / total : 0,
+    hasSearchData: searches.length > 0,
+    hasSubscriptionData: data.subscriptionCount > 0,
+  };
 
   return {
     totalRecords: videos.length + musicVideos.length + data.communityPosts.length,
@@ -111,5 +184,17 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
     recentVideos: [...videos].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 5),
     serviceCounts,
     topSearches: ranked(searchCounts, 5).map((item) => ({ query: item.name, count: item.count })),
+    coverage,
+    rhythm: buildRhythm(videos),
+    dailyActivity,
+    maxDailyCount: dailyActivity.reduce((max, item) => Math.max(max, item.count), 0),
+    sessions,
+    bingeSessionCount: sessions.filter((session) => session.videoCount >= 2).length,
+    longestSession: sessions.reduce<WatchSession | null>((longest, session) => (
+      !longest || session.videoCount > longest.videoCount
+        || (session.videoCount === longest.videoCount && session.durationMinutes > longest.durationMinutes)
+        ? session
+        : longest
+    ), null),
   };
 }

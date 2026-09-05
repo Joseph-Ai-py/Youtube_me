@@ -25,12 +25,43 @@ export interface WatchData {
   unclassifiedCount: number;
   missingUrlCount: number;
   channelNames: Map<string, string>;
+  subscriptionCount: number;
 }
 
 export interface SearchRecord {
   query: string;
   time: Date;
   service: Service;
+}
+
+export interface DateCoverage {
+  searchStart: Date | null;
+  searchEnd: Date | null;
+  watchStart: Date | null;
+  watchEnd: Date | null;
+  searchDays: number;
+  watchDays: number;
+  watchChannelCoverage: number;
+  hasSearchData: boolean;
+  hasSubscriptionData: boolean;
+}
+
+export interface RhythmCell {
+  day: number;
+  hour: number;
+  count: number;
+}
+
+export interface DailyActivity {
+  date: string;
+  count: number;
+}
+
+export interface WatchSession {
+  start: Date;
+  end: Date;
+  videoCount: number;
+  durationMinutes: number;
 }
 
 export interface RecapStats {
@@ -58,4 +89,11 @@ export interface RecapStats {
   recentVideos: WatchRecord[];
   serviceCounts: { name: string; count: number }[];
   topSearches: { query: string; count: number }[];
+  coverage: DateCoverage;
+  rhythm: RhythmCell[];
+  dailyActivity: DailyActivity[];
+  maxDailyCount: number;
+  sessions: WatchSession[];
+  bingeSessionCount: number;
+  longestSession: WatchSession | null;
 }

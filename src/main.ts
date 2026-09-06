@@ -107,6 +107,7 @@ function renderStats(stats: RecapStats): void {
       <article class="recap-card binge-card"><div class="card-topline"><p class="kicker">YOUR BINGE</p><span class="card-number">04</span></div><h3>한 번에 이어서 본<br>가장 긴 세션</h3><strong>${stats.longestSession ? `${stats.longestSession.videoCount}개` : '데이터 부족'}</strong><p>${stats.longestSession ? `영상 ${stats.longestSession.videoCount}개를 연달아 봤습니다.` : '세션 데이터가 없습니다.'}</p><div class="binge-line"><i></i><i></i><i></i><i></i><i></i><b>${stats.bingeSessionCount.toLocaleString('ko-KR')}개 몰아보기 세션</b></div></article>
       <article class="recap-card interest-card"><div class="card-topline"><p class="kicker">YOUR INTERESTS</p><span class="card-number">05</span></div><h3>당신이 자주 찾은 주제</h3><div class="interest-bars">${stats.interests.slice(0, 5).map((interest) => `<div class="interest-bar"><span><em aria-hidden="true">${interest.icon}</em>${escapeHtml(interest.category)}</span><b>${interest.score}%</b><i style="width:${Math.max(interest.score, 2)}%"></i></div>`).join('')}</div><p>영상 제목과 검색어를 바탕으로 정리했습니다.</p></article>
     </section>
+    <div class="carousel-dots" aria-label="리캡 카드 탐색"></div>
     <details class="analysis-details"><summary class="details-heading"><span class="kicker">DETAIL ANALYSIS</span><strong>상세 분석 보기</strong><span>탭해서 접고 펼치기</span></summary>
     <div class="hero-stat"><span>전체 시청 활동</span><strong>${stats.totalRecords.toLocaleString('ko-KR')}개</strong><small>YouTube 시청 ${stats.videoCount.toLocaleString('ko-KR')} · Music 감상 ${stats.youtubeMusicCount.toLocaleString('ko-KR')} · 게시물 ${stats.communityPostCount.toLocaleString('ko-KR')}</small></div>
     <section class="coverage-panel"><div><p class="kicker">DATA COVERAGE</p><h3>기록이 담긴 기간</h3></div><dl><div><dt>시청 기록</dt><dd>${formatRange(stats.coverage.watchStart, stats.coverage.watchEnd)}</dd></div><div><dt>검색 기록</dt><dd>${formatRange(stats.coverage.searchStart, stats.coverage.searchEnd)}</dd></div><div><dt>채널 정보 확인</dt><dd>${percent(stats.coverage.watchChannelCoverage)}</dd></div><div><dt>구독 목록</dt><dd>${stats.coverage.hasSubscriptionData ? '확인됨' : '없음'}</dd></div></dl>${renderCoverageMessage(stats)}</section>
@@ -152,6 +153,43 @@ function renderStats(stats: RecapStats): void {
     <div class="notes"><p><b>${stats.shortCount.toLocaleString('ko-KR')}</b>개의 Shorts는 제목의 #shorts 표식을 기준으로 YouTube 시청 통계에 포함되어 있습니다.</p><p>${searchLabel || 'ZIP 안에서 검색 기록을 찾지 못했습니다.'}</p><p>Takeout에는 실제 재생 시간이 없어 총 시청 시간은 계산하지 않습니다. Live·광고 여부와 관심사 카테고리도 확인할 수 없습니다.</p></div></details>
     <button class="reset" type="button">다시 분석하기</button>
   `;
+  const cards = Array.from(result.querySelectorAll<HTMLElement>('.recap-card'));
+  const dots = result.querySelector<HTMLElement>('.carousel-dots');
+  const cardsContainer = result.querySelector<HTMLElement>('.recap-cards');
+
+  if (dots && cardsContainer) {
+    cards.forEach((card, index) => {
+      const dot = document.createElement('button');
+      dot.className = 'carousel-dot';
+      dot.type = 'button';
+      dot.setAttribute('aria-label', `${index + 1}번째 리캡 카드 보기`);
+      dot.addEventListener('click', () => {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+      });
+      dots.append(dot);
+    });
+
+    const dotButtons = Array.from(dots.querySelectorAll<HTMLButtonElement>('.carousel-dot'));
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const index = cards.indexOf(entry.target as HTMLElement);
+        dotButtons.forEach((dot, dotIndex) => dot.classList.toggle('active', dotIndex === index));
+      });
+    }, { root: cardsContainer, threshold: 0.6 });
+
+    cards.forEach((card) => observer.observe(card));
+    dotButtons[0]?.classList.add('active');
+
+    cardsContainer.addEventListener('wheel', (event) => {
+      const scrollAmount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (!scrollAmount) return;
+      const nextScrollLeft = Math.max(0, Math.min(cardsContainer.scrollLeft + scrollAmount, cardsContainer.scrollWidth - cardsContainer.clientWidth));
+      if (nextScrollLeft === cardsContainer.scrollLeft) return;
+      event.preventDefault();
+      cardsContainer.scrollLeft = nextScrollLeft;
+    }, { passive: false });
+  }
   result.querySelector<HTMLButtonElement>('.reset')?.addEventListener('click', () => window.location.reload());
 }
 

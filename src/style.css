@@ -57,7 +57,11 @@ h2 { font-size: clamp(43px, 7vw, 88px); }
 .style-row b { color: #df5d39; font-weight: 500; }
 .style-row i { grid-column: 1 / -1; display: block; height: 5px; background: linear-gradient(to right, #df5d39 var(--style-width, 0%), #52746b var(--style-width, 0%)); }
 .style-panel .method-note { grid-column: 1 / -1; margin: 0; padding-top: 16px; border-top-color: #52746b; color: #b0c2b8; }
-.recap-cards { display: flex; justify-content: flex-start; gap: 14px; width: 100%; min-width: 0; margin: 14px 0; padding: 0 0 14px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 0; scrollbar-width: thin; }
+.recap-cards { display: flex; justify-content: flex-start; gap: 14px; width: 100%; min-width: 0; margin: 14px 0; padding: 0 0 14px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 0; scrollbar-width: none; }
+.recap-cards::-webkit-scrollbar { display: none; }
+.carousel-dots { display: flex; justify-content: center; align-items: center; gap: 9px; margin: 2px 0 28px; }
+.carousel-dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: #aab4aa; cursor: pointer; transition: background-color .2s ease, transform .2s ease; }
+.carousel-dot.active { background: #df5d39; transform: scale(1.55); }
 .recap-card { display: flex; flex: 0 0 min(760px, calc(100vw - 44px)); width: min(760px, calc(100vw - 44px)); max-width: none; min-width: 0; aspect-ratio: 3 / 4; flex-direction: column; justify-content: flex-start; padding: clamp(23px, 5vw, 54px); border: 1px solid #aab4aa; background: #f0f3ec; overflow: visible; scroll-snap-align: start; }
 .recap-card > * { max-width: 100%; min-width: 0; }
 .recap-card .kicker { margin-bottom: 20px; }
@@ -211,6 +215,8 @@ h2 { font-size: clamp(43px, 7vw, 88px); }
 :root[data-theme='dark'] .recent-list li,
 :root[data-theme='dark'] .method-note { border-color: #405850; }
 :root[data-theme='dark'] .rhythm-cell { background: #31443e; }
+:root[data-theme='dark'] .carousel-dot { background: #52746b; }
+:root[data-theme='dark'] .carousel-dot.active { background: #df5d39; }
 :root[data-theme='dark'] .music-highlight { color: #fff7ed; }
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 700px) { .shell { padding-top: 32px; } .theme-toggle { position: static; margin-top: 20px; } .lede { position: static; margin-top: 28px; text-align: left; } .upload-grid, .stat-grid, .detail-grid, .coverage-panel, .style-panel, .interest-panel { grid-template-columns: minmax(0, 1fr); } .recap-cards { gap: 12px; margin-right: -22px; padding-right: 22px; } .upload-card { min-height: 190px; } .takeout-steps { grid-template-columns: 1fr 1fr; } .takeout-help { margin-top: 18px; } .style-featured { padding-right: 0; padding-bottom: 22px; border-right: 0; border-bottom: 1px solid #52746b; } .recap-card, .style-card, .interest-card { min-height: 0; height: auto; aspect-ratio: 3 / 4; padding: 23px; } .rhythm-card, .replay-card, .interest-card { padding-left: 18px; padding-right: 28px; } .recap-card h3, .recap-card p, .recap-card > strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; } .evidence-list { gap: 5px; } .evidence-list span { min-width: 0; overflow-wrap: anywhere; font-size: 8px; } .stat-grid article, .stat-grid article:not(:nth-child(3n+1)) { padding: 20px 0; border-right: 0; } .stat-grid article + article { border-top: 1px solid #aab4aa; } .stat-grid article strong { margin-top: 13px; } .notes { display: block; } .notes p + p { margin-top: 13px; } .result-head { align-items: start; flex-direction: column; gap: 20px; } .date-range { text-align: left; } .detail-section { padding: 20px; min-width: 0; } .section-heading { align-items: flex-start; flex-wrap: wrap; } .section-heading h3 { overflow-wrap: anywhere; } .recent-list li { grid-template-columns: 78px minmax(0, 1fr); gap: 10px; } .recent-list strong, .video-list strong, .search-list strong { min-width: 0; overflow-wrap: anywhere; white-space: normal; } .coverage-panel dl { grid-template-columns: 1fr; } .session-grid { grid-template-columns: 1fr; gap: 18px; } .details-heading { align-items: flex-start; flex-direction: column; gap: 7px; } }

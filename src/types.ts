@@ -57,6 +57,11 @@ export interface DailyActivity {
   count: number;
 }
 
+export interface HourlyActivity {
+  hour: number;
+  count: number;
+}
+
 export interface WatchSession {
   start: Date;
   end: Date;
@@ -117,7 +122,11 @@ export interface RecapStats {
   topSearches: { query: string; count: number }[];
   coverage: DateCoverage;
   rhythm: RhythmCell[];
+  recentRhythm: RhythmCell[];
   dailyActivity: DailyActivity[];
+  hourlyActivity: HourlyActivity[];
+  hourlyActivityStart: Date | null;
+  hourlyActivityEnd: Date | null;
   maxDailyCount: number;
   sessions: WatchSession[];
   bingeSessionCount: number;

@@ -1,4 +1,5 @@
 import './style.css';
+import html2canvas from 'html2canvas';
 import { calculateStats } from './features';
 import { parseTakeoutZip } from './parsers';
 import type { RecapStats } from './types';
@@ -76,10 +77,10 @@ function formatDuration(minutes: number): string {
   return remainingMinutes ? `${hours}시간 ${remainingMinutes}분` : `${hours}시간`;
 }
 
-function renderRhythm(stats: RecapStats, className = ''): string {
-  const maximum = Math.max(...stats.rhythm.map((cell) => cell.count), 0);
+function renderRhythm(stats: RecapStats, className = '', cells = stats.rhythm): string {
+  const maximum = Math.max(...cells.map((cell) => cell.count), 0);
   if (!maximum) return '<p class="empty-detail">시청 리듬을 계산할 영상 기록이 없습니다.</p>';
-  return `<div class="rhythm-layout ${className}"><div class="rhythm-days" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rhythm-grid" role="img" aria-label="요일과 시간대별 시청 기록 분포">${stats.rhythm.map((cell) => {
+  return `<div class="rhythm-layout ${className}"><div class="rhythm-days" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rhythm-grid" role="img" aria-label="최근 3개월 요일과 시간대별 시청 기록 분포">${cells.map((cell) => {
     const intensity = cell.count ? Math.max(16, Math.round((cell.count / maximum) * 100)) : 0;
     return `<span class="rhythm-cell" style="--intensity:${intensity}%" title="${dayNames[cell.day]} ${cell.hour}시: ${cell.count}개"></span>`;
   }).join('')}<div class="rhythm-hours"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>24시</span></div></div></div>`;
@@ -123,6 +124,115 @@ function renderBehaviorRadar(stats: RecapStats): string {
   return `<div class="behavior-profile-panel"><div class="behavior-radar-wrap">${renderBehaviorRadarSvg(profile)}</div><div class="behavior-score-list">${profile.scores.map((score) => `<article class="behavior-score"><div class="behavior-score-head"><strong>${escapeHtml(score.label)}</strong><b>${score.score}점</b></div><p>${escapeHtml(score.description)}</p><div class="behavior-evidence">${score.evidence.map((item) => `<span>${escapeHtml(item.label)} <b>${escapeHtml(item.value)}</b></span>`).join('')}</div></article>`).join('')}</div></div>`;
 }
 
+function formatShortDate(date: Date | null): string {
+  return date ? new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric' }).format(date) : '날짜 없음';
+}
+
+function renderHourlyActivity(stats: RecapStats): string {
+  const maximum = Math.max(...stats.hourlyActivity.map((item) => item.count), 1);
+  return `<div class="hourly-activity" role="img" aria-label="최근 30일 시간대별 시청 기록 분포"><div class="hourly-bars">${stats.hourlyActivity.map((item) => `<span class="hourly-bar" style="--bar-height:${Math.max(item.count ? 8 : 2, Math.round((item.count / maximum) * 100))}%" title="${item.hour}시 ${item.count}개"></span>`).join('')}</div><div class="hourly-axis"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>24시</span></div></div>`;
+}
+
+function renderInterestStory(stats: RecapStats): string {
+  const interests = stats.interests.slice(0, 5);
+  if (!interests.length) return '<p class="empty-detail">아직 주제를 발견할 기록이 없습니다.</p>';
+  const story = interests.slice(0, 3).map((interest) => `${escapeHtml(interest.category)} ${interest.score}%`).join(' · ');
+  return `<p class="interest-story">이번 기록은 <strong>${story}</strong> 쪽으로 마음이 기울었습니다.</p><div class="interest-bars">${interests.map((interest) => `<div class="interest-bar"><span><em aria-hidden="true">${interest.icon}</em>${escapeHtml(interest.category)}</span><b>${interest.score}%</b><i style="width:${Math.max(interest.score, 2)}%"></i></div>`).join('')}</div>`;
+}
+
+function renderSummaryCard(stats: RecapStats): string {
+  const topInterests = stats.interests.slice(0, 3).map((interest) => `<span>${escapeHtml(interest.category)} <b>${interest.score}%</b></span>`).join('');
+  const nightRate = stats.videoCount ? stats.rhythm.filter((cell) => cell.hour >= 22 || cell.hour < 6).reduce((sum, cell) => sum + cell.count, 0) / stats.videoCount : 0;
+  const radar = stats.behaviorProfile ? renderBehaviorRadarSvg(stats.behaviorProfile, 'behavior-radar summary-radar') : '<p class="summary-radar-empty">데이터 부족</p>';
+  return `<article class="recap-card summary-card" id="summary-card"><div class="card-topline"><p class="kicker">YOUR SUMMARY</p><span class="card-number">03</span></div><div class="summary-layout"><div class="summary-copy"><h3>당신의 시청을<br><em>한 장에 담았습니다</em></h3><div class="summary-interests"><span class="summary-label">가장 많이 본 콘텐츠</span><div>${topInterests || '<span>데이터 부족</span>'}</div></div><div class="summary-radar-wrap">${radar}</div><div class="summary-metrics"><div><span>반복 시청 비율</span><strong>${(stats.repeatViewRate * 100).toFixed(1)}%</strong></div><div><span>시청 채널 다양성</span><strong>${stats.channelDiversity.toFixed(2)}</strong></div><div><span>밤 시청 비중</span><strong>${Math.round(nightRate * 100)}%</strong></div></div></div></div></article>`;
+}
+
+function createSummaryImage(stats: RecapStats): Promise<Blob | null> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080;
+  canvas.height = 1350;
+  const context = canvas.getContext('2d');
+  if (!context) return Promise.resolve(null);
+  const topInterests = stats.interests.slice(0, 3);
+  const nightRate = stats.videoCount ? stats.rhythm.filter((cell) => cell.hour >= 22 || cell.hour < 6).reduce((sum, cell) => sum + cell.count, 0) / stats.videoCount : 0;
+  context.fillStyle = '#183b36';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#edf1e8';
+  context.font = '500 28px DM Mono, monospace';
+  context.fillText('YOUR WATCHING SUMMARY', 90, 110);
+  context.font = '800 72px Manrope, sans-serif';
+  context.fillText('YouTube Me', 90, 220);
+  context.font = '600 42px Manrope, sans-serif';
+  context.fillText('이번 기록에서 보이는 것들', 90, 285);
+  context.fillStyle = '#df5d39';
+  context.font = '500 25px DM Mono, monospace';
+  context.fillText('가장 많이 본 콘텐츠', 90, 420);
+  context.fillStyle = '#edf1e8';
+  context.font = '700 43px Manrope, sans-serif';
+  context.fillText(topInterests.map((interest) => `${interest.category} ${interest.score}%`).join('  /  ') || '데이터 부족', 90, 485);
+  const metrics = [
+    ['반복 시청 비율', `${(stats.repeatViewRate * 100).toFixed(1)}%`],
+    ['시청 채널 다양성', stats.channelDiversity.toFixed(2)],
+    ['밤 시청 비중', `${Math.round(nightRate * 100)}%`],
+  ];
+  metrics.forEach(([label, value], index) => {
+    const y = 680 + index * 190;
+    context.fillStyle = '#b0c2b8';
+    context.font = '500 25px DM Mono, monospace';
+    context.fillText(label, 90, y);
+    context.fillStyle = '#df5d39';
+    context.font = '800 70px Manrope, sans-serif';
+    context.fillText(value, 90, y + 78);
+  });
+  if (stats.behaviorProfile) {
+    const centerX = 820;
+    const centerY = 835;
+    const radius = 170;
+    const point = (score: number, index: number, scale = 1): [number, number] => {
+      const angle = (Math.PI * 2 * index) / stats.behaviorProfile!.scores.length - Math.PI / 2;
+      const distance = radius * scale * (score / 100);
+      return [centerX + Math.cos(angle) * distance, centerY + Math.sin(angle) * distance];
+    };
+    context.strokeStyle = '#52746b';
+    context.lineWidth = 2;
+    [.35, .65, 1].forEach((scale) => {
+      context.beginPath();
+      stats.behaviorProfile!.scores.forEach((_, index) => {
+        const [x, y] = point(100, index, scale);
+        index ? context.lineTo(x, y) : context.moveTo(x, y);
+      });
+      context.closePath();
+      context.stroke();
+    });
+    context.beginPath();
+    stats.behaviorProfile.scores.forEach((score, index) => {
+      const [x, y] = point(score.score, index);
+      index ? context.lineTo(x, y) : context.moveTo(x, y);
+    });
+    context.closePath();
+    context.fillStyle = 'rgba(223, 93, 57, .25)';
+    context.fill();
+    context.strokeStyle = '#df5d39';
+    context.stroke();
+  }
+  context.fillStyle = '#b0c2b8';
+  context.font = '400 22px DM Mono, monospace';
+  context.fillText('youtube-me · analyzed in your browser', 90, 1260);
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+}
+
+async function captureSummaryCard(): Promise<Blob | null> {
+  const card = document.querySelector<HTMLElement>('#summary-card');
+  if (!card) return null;
+  const canvas = await html2canvas(card, {
+    backgroundColor: null,
+    scale: Math.max(2, window.devicePixelRatio),
+    useCORS: true,
+    logging: false,
+  });
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+}
+
 function renderStats(stats: RecapStats): void {
   if (!result) return;
   result.hidden = false;
@@ -130,11 +240,11 @@ function renderStats(stats: RecapStats): void {
     <div class="result-head"><div><p class="kicker">YOUR WATCHING RECEIPT</p><h2>이번 기록에서<br><em>보이는 것들</em></h2></div><p class="date-range">${formatDate(stats.firstDate)}<br>— ${formatDate(stats.lastDate)}</p></div>
     <section class="recap-cards">
       <article class="recap-card style-card"><div class="card-topline"><p class="kicker">YOUR BEHAVIOR PROFILE</p><span class="card-number">01</span></div><h3>${stats.behaviorProfile ? '5개 행동 축으로 본<br>시청 습관' : '데이터 부족'}</h3><strong>${stats.behaviorProfile ? `${Math.round(stats.behaviorProfile.scores.reduce((sum, score) => sum + score.score, 0) / stats.behaviorProfile.scores.length)}점 평균` : '계산 불가'}</strong>${stats.behaviorProfile ? `<div class="behavior-card-radar">${renderBehaviorRadarSvg(stats.behaviorProfile, 'behavior-radar behavior-radar-card')}</div>` : ''}<div class="evidence-list">${stats.behaviorProfile?.scores.map((score) => `<span>${escapeHtml(score.label)} <b>${score.score}점</b></span>`).join('') ?? ''}</div></article>
-      <article class="recap-card rhythm-card"><div class="card-topline"><p class="kicker">YOUR RHYTHM</p><span class="card-number">02</span></div><h3>YouTube를 가장 많이<br>보는 시간</h3><strong>${stats.topHour ? `${stats.topHour.hour}:00` : '데이터 부족'}</strong><p>${stats.topDay ? `특히 ${escapeHtml(stats.topDay.name)}에 활동이 많습니다.` : '요일 데이터가 없습니다.'}</p>${renderRhythm(stats, 'rhythm-card-chart')}<div class="rhythm-callout"><span>가장 활발한 요일</span><b>${stats.topDay?.name ?? '데이터 부족'}</b></div></article>
-      <article class="recap-card replay-card"><div class="card-topline"><p class="kicker">YOUR REPLAY</p><span class="card-number">03</span></div><h3>당신이 다시 찾은 영상</h3><strong>${stats.topVideos[0] ? escapeHtml(stats.topVideos[0].title) : '데이터 부족'}</strong><p>${stats.topVideos[0] ? `${stats.topVideos[0].count.toLocaleString('ko-KR')}회 다시 봤습니다 · ${escapeHtml(stats.topVideos[0].channelName ?? '채널 정보 없음')}` : '반복 시청 기록이 없습니다.'}</p></article>
-      <article class="recap-card binge-card"><div class="card-topline"><p class="kicker">YOUR BINGE</p><span class="card-number">04</span></div><h3>한 번에 이어서 본<br>가장 긴 세션</h3><strong>${stats.longestSession ? `${stats.longestSession.videoCount}개` : '데이터 부족'}</strong><p>${stats.longestSession ? `영상 ${stats.longestSession.videoCount}개를 연달아 봤습니다.` : '세션 데이터가 없습니다.'}</p><div class="binge-line"><i></i><i></i><i></i><i></i><i></i><b>${stats.bingeSessionCount.toLocaleString('ko-KR')}개 몰아보기 세션</b></div></article>
-      <article class="recap-card interest-card"><div class="card-topline"><p class="kicker">YOUR INTERESTS</p><span class="card-number">05</span></div><h3>당신이 자주 찾은 주제</h3><div class="interest-bars">${stats.interests.slice(0, 5).map((interest) => `<div class="interest-bar"><span><em aria-hidden="true">${interest.icon}</em>${escapeHtml(interest.category)}</span><b>${interest.score}%</b><i style="width:${Math.max(interest.score, 2)}%"></i></div>`).join('')}</div><p>영상 제목과 검색어를 바탕으로 정리했습니다.</p></article>
+      <article class="recap-card rhythm-card"><div class="card-topline"><p class="kicker">YOUR RHYTHM</p><span class="card-number">01</span></div><h3>당신의 시청은<br>이 시간에 모였습니다</h3><div class="rhythm-period"><span>최근 3개월 기여도</span><b>${formatShortDate(stats.coverage.watchEnd ? new Date(stats.coverage.watchEnd.getTime() - 89 * 86400000) : null)} — ${formatShortDate(stats.coverage.watchEnd)}</b></div>${renderRhythm(stats, 'rhythm-card-chart', stats.recentRhythm)}<div class="hourly-heading"><span>최근 1달간 시간대별 소비</span><b>24시간</b></div>${renderHourlyActivity(stats)}<p class="rhythm-story">${stats.topHour && stats.topDay ? `${escapeHtml(stats.topDay.name)} ${stats.topHour.hour}시쯤, YouTube로 가장 자주 돌아왔습니다.` : '당신의 시청 리듬을 발견하는 중입니다.'}</p></article>
+      <article class="recap-card interest-card"><div class="card-topline"><p class="kicker">YOUR INTERESTS</p><span class="card-number">02</span></div><h3>이번 달 마음이<br>향한 곳들</h3>${renderInterestStory(stats)}</article>
+      ${renderSummaryCard(stats)}
     </section>
+    <div class="summary-actions"><button class="summary-download" type="button">이미지 다운로드</button><button class="summary-share" type="button">인스타그램에 공유</button></div>
     <div class="carousel-dots" aria-label="리캡 카드 탐색"></div>
     <details class="analysis-details"><summary class="details-heading"><span class="kicker">DETAIL ANALYSIS</span><strong>상세 분석 보기</strong><span>탭해서 접고 펼치기</span></summary>
     <div class="hero-stat"><span>전체 시청 활동</span><strong>${stats.totalRecords.toLocaleString('ko-KR')}개</strong><small>YouTube 시청 ${stats.videoCount.toLocaleString('ko-KR')} · Music 감상 ${stats.youtubeMusicCount.toLocaleString('ko-KR')} · 게시물 ${stats.communityPostCount.toLocaleString('ko-KR')}</small></div>
@@ -220,6 +330,37 @@ function renderStats(stats: RecapStats): void {
       cardsContainer.scrollLeft = nextScrollLeft;
     }, { passive: false });
   }
+  result.querySelector<HTMLButtonElement>('.summary-download')?.addEventListener('click', async () => {
+    const image = await captureSummaryCard();
+    if (!image) return;
+    const url = URL.createObjectURL(image);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'youtube-me-summary.png';
+    link.style.display = 'none';
+    document.body.append(link);
+    link.click();
+    window.setTimeout(() => {
+      link.remove();
+      URL.revokeObjectURL(url);
+    }, 1000);
+  });
+  result.querySelector<HTMLButtonElement>('.summary-share')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const image = await captureSummaryCard();
+    if (!image) return;
+    const file = new File([image], 'youtube-me-summary.png', { type: 'image/png' });
+    const share = (navigator as Navigator & { share?: (data: { title: string; text: string; files?: File[] }) => Promise<void> }).share;
+    if (share) {
+      try {
+        await share.call(navigator, { title: 'YouTube Me 요약', text: '나의 YouTube 시청 요약', files: [file] });
+        return;
+      } catch {
+        return;
+      }
+    }
+    button.textContent = '이미지를 먼저 다운로드했어요';
+  });
   result.querySelector<HTMLButtonElement>('.reset')?.addEventListener('click', () => window.location.reload());
 }
 

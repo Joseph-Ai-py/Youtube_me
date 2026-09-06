@@ -1,6 +1,7 @@
 import type {
   DailyActivity,
   DateCoverage,
+  HourlyActivity,
   RecapStats,
   RhythmCell,
   SearchRecord,
@@ -67,10 +68,27 @@ function buildRhythm(videos: WatchRecord[]): RhythmCell[] {
   }))).flat();
 }
 
+function buildRecentRhythm(videos: WatchRecord[]): RhythmCell[] {
+  const end = videos.reduce<Date | null>((latest, video) => (!latest || video.time > latest ? video.time : latest), null);
+  if (!end) return buildRhythm([]);
+  const start = new Date(end.getTime() - 89 * 86400000);
+  return buildRhythm(videos.filter((video) => video.time >= start && video.time <= end));
+}
+
 function buildDailyActivity(videos: WatchRecord[]): DailyActivity[] {
   return [...countBy(videos, (video) => video.time.toISOString().slice(0, 10)).entries()]
     .map(([date, count]) => ({ date, count }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildHourlyActivity(videos: WatchRecord[]): { activity: HourlyActivity[]; start: Date | null; end: Date | null } {
+  const end = videos.reduce<Date | null>((latest, video) => (!latest || video.time > latest ? video.time : latest), null);
+  const start = end ? new Date(end.getTime() - 29 * 86400000) : null;
+  const counts = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
+  videos.forEach((video) => {
+    if (start && end && video.time >= start && video.time <= end) counts[video.time.getHours()].count += 1;
+  });
+  return { activity: counts, start, end };
 }
 
 function buildSessions(videos: WatchRecord[]): WatchSession[] {
@@ -261,6 +279,7 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
   const watchRange = dateRange(videos);
   const searchRange = dateRange(searches);
   const dailyActivity = buildDailyActivity(videos);
+  const hourlyActivity = buildHourlyActivity(videos);
   const sessions = buildSessions(videos);
   const coverage: DateCoverage = {
     searchStart: searchRange.start,
@@ -311,7 +330,11 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
     topSearches: ranked(searchCounts, 5).map((item) => ({ query: item.name, count: item.count })),
     coverage,
     rhythm: buildRhythm(videos),
+    recentRhythm: buildRecentRhythm(videos),
     dailyActivity,
+    hourlyActivity: hourlyActivity.activity,
+    hourlyActivityStart: hourlyActivity.start,
+    hourlyActivityEnd: hourlyActivity.end,
     maxDailyCount: dailyActivity.reduce((max, item) => Math.max(max, item.count), 0),
     sessions,
     bingeSessionCount: sessions.filter((session) => session.videoCount >= 2).length,

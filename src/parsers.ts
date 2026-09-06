@@ -13,6 +13,13 @@ function asText(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+export function cleanWatchTitle(title: string): string {
+  return title
+    .replace(/^(?:Watched\s+|시청함\s*[:：]?\s*|시청한 동영상\s*[:：]?\s*)/iu, '')
+    .replace(/\s+(?:을\(를\)\s*시청했습니다|watched)\.?\s*$/iu, '')
+    .trim();
+}
+
 function parseTime(value: unknown): Date | null {
   const date = new Date(asText(value));
   return Number.isNaN(date.getTime()) ? null : date;
@@ -52,7 +59,7 @@ export function parseWatchHistory(raw: string): WatchData {
     if (!time) continue;
 
     const titleUrl = asText(entry.titleUrl) || null;
-    const title = asText(entry.title).replace(/^(Watched |시청함 |시청한 동영상 )/, '');
+    const title = cleanWatchTitle(asText(entry.title));
     const service = asText(entry.header) || 'YouTube';
     const channel = channelInfo(entry.subtitles);
 
@@ -93,7 +100,7 @@ export function parseSearchHistory(raw: string): SearchRecord[] {
     const time = parseTime(entry.time);
     const title = asText(entry.title);
     if (!time || !title) continue;
-    const stripped = title.replace(/\s*을\(를\) 검색했습니다\.?$/, '').trim();
+    const stripped = title.replace(/\s*(?:을\(를\)\s*검색했습니다|searched for)\.?$/iu, '').trim();
     let query = stripped !== title.trim() ? stripped : '';
     if (!query && entry.titleUrl) {
       try {
@@ -107,15 +114,15 @@ export function parseSearchHistory(raw: string): SearchRecord[] {
   return results;
 }
 
-export async function parseTakeoutZip(file: Blob): Promise<{ watch: WatchData; searches: SearchRecord[] }> {
+export async function parseTakeoutZip(file: Blob | Uint8Array): Promise<{ watch: WatchData; searches: SearchRecord[] }> {
   const zip = await JSZip.loadAsync(file);
-  const watchFile = Object.keys(zip.files).find((path) => path.endsWith('시청 기록/시청 기록.json'));
-  const searchFile = Object.keys(zip.files).find((path) => path.endsWith('시청 기록/검색 기록.json'));
-  if (!watchFile) throw new Error('ZIP 안에서 시청 기록/시청 기록.json을 찾지 못했습니다.');
+  const watchFile = Object.keys(zip.files).find((path) => /(?:^|\/)(?:watch[-_ ]?history|시청[-_ ]?기록)\.json$/iu.test(path));
+  const searchFile = Object.keys(zip.files).find((path) => /(?:^|\/)(?:search[-_ ]?history|검색[-_ ]?기록)\.json$/iu.test(path));
+  if (!watchFile) throw new Error('ZIP 안에서 시청 기록 JSON 파일을 찾지 못했습니다.');
 
   const watchRaw = await zip.files[watchFile].async('string');
   const searchRaw = searchFile ? await zip.files[searchFile].async('string') : null;
-  const subscriptionFile = Object.keys(zip.files).find((path) => path.endsWith('구독정보/구독정보.csv'));
+  const subscriptionFile = Object.keys(zip.files).find((path) => /(?:^|\/)(?:subscriptions?|구독[-_ ]?정보)\.csv$/iu.test(path));
   const channelNames = new Map<string, string>();
   let subscriptionCount = 0;
   if (subscriptionFile) {

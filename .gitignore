@@ -5,6 +5,10 @@ dist/
 __pycache__/
 *.pyc
 
-# Google Takeout data should never be published.
-data/Takeout/
-data/*.zip
+# Personal data and local imports should never be published.
+data/
+
+# Legacy application and local backups.
+streamlit/
+.backup/
+오늘한 일.md

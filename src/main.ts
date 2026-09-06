@@ -15,6 +15,16 @@ app.innerHTML = `
       <h1>YouTube<br><em>Me</em></h1>
       <p class="lede">당신은 YouTube를<br>어떻게 보고 있을까요?</p>
       <div class="privacy"><span></span> 원본 파일은 이 브라우저 안에서만 분석됩니다</div>
+      <details class="takeout-guide">
+        <summary><strong>Google Takeout ZIP 가져오는 방법</strong><span class="takeout-guide-toggle" aria-hidden="true">⌄</span></summary>
+        <ol class="takeout-steps" aria-label="Google Takeout 가져오기 단계">
+          <li><b>1</b><span><a href="https://takeout.google.com/" target="_blank" rel="noreferrer">Google Takeout 열기 ↗</a></span></li>
+          <li><b>2</b><span>YouTube 및 YouTube Music 선택</span></li>
+          <li><b>3</b><span>기록 포함 확인 후 ZIP 다운로드</span></li>
+          <li><b>4</b><span>이곳에 ZIP 가져오기</span></li>
+        </ol>
+        <p class="takeout-help">Google Takeout에서 <strong>YouTube 및 YouTube Music</strong>만 선택한 뒤, 데이터 형식은 JSON으로 둡니다. 다운로드한 ZIP을 풀지 말고 그대로 가져오면 YouTube Me가 시청 기록, 검색 기록, 구독 목록을 자동으로 찾습니다.</p>
+      </details>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="테마 전환"><span>☼</span> 라이트</button>
     </section>
     <section class="workspace">
@@ -27,13 +37,6 @@ app.innerHTML = `
           <span class="choose">파일 선택 <b>↗</b></span>
         </label>
       </div>
-      <ol class="takeout-steps" aria-label="Google Takeout 가져오기 단계">
-        <li><b>1</b><span><a href="https://takeout.google.com/" target="_blank" rel="noreferrer">Google Takeout 열기 ↗</a></span></li>
-        <li><b>2</b><span>YouTube 및 YouTube Music 선택</span></li>
-        <li><b>3</b><span>기록 포함 확인 후 ZIP 다운로드</span></li>
-        <li><b>4</b><span>이곳에 ZIP 가져오기</span></li>
-      </ol>
-      <p class="takeout-help">Google Takeout에서 <strong>YouTube 및 YouTube Music</strong>만 선택한 뒤, 데이터 형식은 JSON으로 둡니다. 다운로드한 ZIP을 풀지 말고 그대로 가져오면 YouTube Me가 시청 기록, 검색 기록, 구독 목록을 자동으로 찾습니다.</p>
       <p id="status" class="status">시청 기록 파일을 올리면 리캡이 시작됩니다.</p>
       <section id="result" class="result" hidden></section>
     </section>

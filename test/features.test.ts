@@ -35,8 +35,9 @@ test('calculates repeat, channel, and session metrics consistently', () => {
   ]));
 
   assert.equal(stats.videoCount, 3);
-  assert.equal(stats.repeatedVideoRate, 2 / 3);
-  assert.equal(stats.newChannelRate, 2 / 3);
+  assert.equal(stats.repeatViewRate, 2 / 3);
+  assert.equal(stats.channelDiscoveryRate, 2 / 3);
+  assert.equal(stats.behaviorProfile?.scores.length, 5);
   assert.equal(stats.sessions.length, 1);
   assert.equal(stats.longestSession?.videoCount, 3);
   assert.equal(stats.topVideos[0]?.count, 2);

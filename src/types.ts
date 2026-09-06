@@ -64,14 +64,23 @@ export interface WatchSession {
   durationMinutes: number;
 }
 
-export type YouTubeStyleKey = 'explorer' | 'focused' | 'immersive' | 'variety';
+export type BehaviorDimensionKey = 'exploration' | 'focus' | 'repetition' | 'immersion' | 'regularity';
 
-export interface YouTubeStyleScore {
-  key: YouTubeStyleKey;
+export interface BehaviorEvidence {
   label: string;
-  icon: string;
+  value: string;
+}
+
+export interface BehaviorScore {
+  key: BehaviorDimensionKey;
+  label: string;
   score: number;
   description: string;
+  evidence: BehaviorEvidence[];
+}
+
+export interface BehaviorProfile {
+  scores: BehaviorScore[];
 }
 
 export interface InterestScore {
@@ -90,10 +99,10 @@ export interface RecapStats {
   topChannel: { name: string; count: number } | null;
   topDay: { name: string; count: number } | null;
   topHour: { hour: number; count: number } | null;
-  newChannelRate: number;
-  repeatedVideoRate: number;
+  channelDiscoveryRate: number;
+  repeatViewRate: number;
   channelDiversity: number;
-  hhi: number;
+  channelConcentration: number;
   firstDate: Date | null;
   lastDate: Date | null;
   youtubeMusicCount: number;
@@ -113,7 +122,6 @@ export interface RecapStats {
   sessions: WatchSession[];
   bingeSessionCount: number;
   longestSession: WatchSession | null;
-  styles: YouTubeStyleScore[];
-  representativeStyle: YouTubeStyleScore | null;
+  behaviorProfile: BehaviorProfile | null;
   interests: InterestScore[];
 }

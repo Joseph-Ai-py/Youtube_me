@@ -73,10 +73,10 @@ function formatDuration(minutes: number): string {
   return remainingMinutes ? `${hours}시간 ${remainingMinutes}분` : `${hours}시간`;
 }
 
-function renderRhythm(stats: RecapStats): string {
+function renderRhythm(stats: RecapStats, className = ''): string {
   const maximum = Math.max(...stats.rhythm.map((cell) => cell.count), 0);
   if (!maximum) return '<p class="empty-detail">시청 리듬을 계산할 영상 기록이 없습니다.</p>';
-  return `<div class="rhythm-layout"><div class="rhythm-days" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rhythm-grid" role="img" aria-label="요일과 시간대별 시청 기록 분포">${stats.rhythm.map((cell) => {
+  return `<div class="rhythm-layout ${className}"><div class="rhythm-days" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rhythm-grid" role="img" aria-label="요일과 시간대별 시청 기록 분포">${stats.rhythm.map((cell) => {
     const intensity = cell.count ? Math.max(16, Math.round((cell.count / maximum) * 100)) : 0;
     return `<span class="rhythm-cell" style="--intensity:${intensity}%" title="${dayNames[cell.day]} ${cell.hour}시: ${cell.count}개"></span>`;
   }).join('')}<div class="rhythm-hours"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>24시</span></div></div></div>`;
@@ -95,14 +95,39 @@ function renderCoverageMessage(stats: RecapStats): string {
   return messages.length ? `<p class="coverage-message">${messages.map(escapeHtml).join('<br>')}</p>` : '';
 }
 
+function renderBehaviorRadarSvg(profile: NonNullable<RecapStats['behaviorProfile']>, className = 'behavior-radar'): string {
+  const centerX = 160;
+  const centerY = 136;
+  const radius = 92;
+  const point = (score: number, index: number, scale = 1): string => {
+    const angle = (Math.PI * 2 * index) / profile.scores.length - Math.PI / 2;
+    const distance = radius * scale * (score / 100);
+    return `${(centerX + Math.cos(angle) * distance).toFixed(1)},${(centerY + Math.sin(angle) * distance).toFixed(1)}`;
+  };
+  const ring = (scale: number): string => profile.scores.map((_, index) => point(100, index, scale)).join(' ');
+  const labels = profile.scores.map((score, index) => {
+    const angle = (Math.PI * 2 * index) / profile.scores.length - Math.PI / 2;
+    const x = centerX + Math.cos(angle) * (radius + 25);
+    const y = centerY + Math.sin(angle) * (radius + 25);
+    return `<text class="behavior-radar-label" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">${escapeHtml(score.label)}</text>`;
+  }).join('');
+  return `<svg class="${className}" viewBox="0 0 320 280" role="img" aria-label="탐색성, 집중성, 반복성, 몰입성, 규칙성 행동 점수 레이더 차트"><title>행동 프로필 오각형 그래프</title>${[.2, .4, .6, .8, 1].map((scale) => `<polygon class="behavior-radar-ring" points="${ring(scale)}"></polygon>`).join('')}<polygon class="behavior-radar-data" points="${profile.scores.map((score, index) => point(score.score, index)).join(' ')}"></polygon>${profile.scores.map((score, index) => `<circle class="behavior-radar-point" cx="${point(score.score, index).split(',')[0]}" cy="${point(score.score, index).split(',')[1]}" r="4"><title>${escapeHtml(score.label)} ${score.score}점</title></circle>`).join('')}${labels}</svg>`;
+}
+
+function renderBehaviorRadar(stats: RecapStats): string {
+  const profile = stats.behaviorProfile;
+  if (!profile) return '<p class="empty-detail">행동 프로필을 계산할 수 있는 시청 기록이 없습니다.</p>';
+  return `<div class="behavior-profile-panel"><div class="behavior-radar-wrap">${renderBehaviorRadarSvg(profile)}</div><div class="behavior-score-list">${profile.scores.map((score) => `<article class="behavior-score"><div class="behavior-score-head"><strong>${escapeHtml(score.label)}</strong><b>${score.score}점</b></div><p>${escapeHtml(score.description)}</p><div class="behavior-evidence">${score.evidence.map((item) => `<span>${escapeHtml(item.label)} <b>${escapeHtml(item.value)}</b></span>`).join('')}</div></article>`).join('')}</div></div>`;
+}
+
 function renderStats(stats: RecapStats): void {
   if (!result) return;
   result.hidden = false;
   result.innerHTML = `
     <div class="result-head"><div><p class="kicker">YOUR WATCHING RECEIPT</p><h2>이번 기록에서<br><em>보이는 것들</em></h2></div><p class="date-range">${formatDate(stats.firstDate)}<br>— ${formatDate(stats.lastDate)}</p></div>
     <section class="recap-cards">
-      <article class="recap-card style-card"><div class="card-topline"><p class="kicker">YOUR YOUTUBE TYPE</p><span class="card-number">01</span></div><h3>${escapeHtml(stats.representativeStyle?.label ?? '데이터 부족')}</h3><strong>${stats.representativeStyle ? `${stats.representativeStyle.score}점` : '계산 불가'}</strong><p>${escapeHtml(stats.representativeStyle?.description ?? '유형을 계산할 수 있는 시청 기록이 없습니다.')}</p><div class="evidence-list"><span>채널 다양성 <b>${percent(stats.channelDiversity)}</b></span><span>새 채널 발견 <b>${percent(stats.newChannelRate)}</b></span><span>반복 시청 <b>${percent(stats.repeatedVideoRate)}</b></span></div></article>
-      <article class="recap-card rhythm-card"><div class="card-topline"><p class="kicker">YOUR RHYTHM</p><span class="card-number">02</span></div><h3>YouTube를 가장 많이<br>보는 시간</h3><strong>${stats.topHour ? `${stats.topHour.hour}:00` : '데이터 부족'}</strong><p>${stats.topDay ? `특히 ${escapeHtml(stats.topDay.name)}에 활동이 많습니다.` : '요일 데이터가 없습니다.'}</p><div class="rhythm-callout"><span>가장 활발한 요일</span><b>${stats.topDay?.name ?? '데이터 부족'}</b></div></article>
+      <article class="recap-card style-card"><div class="card-topline"><p class="kicker">YOUR BEHAVIOR PROFILE</p><span class="card-number">01</span></div><h3>${stats.behaviorProfile ? '5개 행동 축으로 본<br>시청 습관' : '데이터 부족'}</h3><strong>${stats.behaviorProfile ? `${Math.round(stats.behaviorProfile.scores.reduce((sum, score) => sum + score.score, 0) / stats.behaviorProfile.scores.length)}점 평균` : '계산 불가'}</strong>${stats.behaviorProfile ? `<div class="behavior-card-radar">${renderBehaviorRadarSvg(stats.behaviorProfile, 'behavior-radar behavior-radar-card')}</div>` : ''}<div class="evidence-list">${stats.behaviorProfile?.scores.map((score) => `<span>${escapeHtml(score.label)} <b>${score.score}점</b></span>`).join('') ?? ''}</div></article>
+      <article class="recap-card rhythm-card"><div class="card-topline"><p class="kicker">YOUR RHYTHM</p><span class="card-number">02</span></div><h3>YouTube를 가장 많이<br>보는 시간</h3><strong>${stats.topHour ? `${stats.topHour.hour}:00` : '데이터 부족'}</strong><p>${stats.topDay ? `특히 ${escapeHtml(stats.topDay.name)}에 활동이 많습니다.` : '요일 데이터가 없습니다.'}</p>${renderRhythm(stats, 'rhythm-card-chart')}<div class="rhythm-callout"><span>가장 활발한 요일</span><b>${stats.topDay?.name ?? '데이터 부족'}</b></div></article>
       <article class="recap-card replay-card"><div class="card-topline"><p class="kicker">YOUR REPLAY</p><span class="card-number">03</span></div><h3>당신이 다시 찾은 영상</h3><strong>${stats.topVideos[0] ? escapeHtml(stats.topVideos[0].title) : '데이터 부족'}</strong><p>${stats.topVideos[0] ? `${stats.topVideos[0].count.toLocaleString('ko-KR')}회 다시 봤습니다 · ${escapeHtml(stats.topVideos[0].channelName ?? '채널 정보 없음')}` : '반복 시청 기록이 없습니다.'}</p></article>
       <article class="recap-card binge-card"><div class="card-topline"><p class="kicker">YOUR BINGE</p><span class="card-number">04</span></div><h3>한 번에 이어서 본<br>가장 긴 세션</h3><strong>${stats.longestSession ? `${stats.longestSession.videoCount}개` : '데이터 부족'}</strong><p>${stats.longestSession ? `영상 ${stats.longestSession.videoCount}개를 연달아 봤습니다.` : '세션 데이터가 없습니다.'}</p><div class="binge-line"><i></i><i></i><i></i><i></i><i></i><b>${stats.bingeSessionCount.toLocaleString('ko-KR')}개 몰아보기 세션</b></div></article>
       <article class="recap-card interest-card"><div class="card-topline"><p class="kicker">YOUR INTERESTS</p><span class="card-number">05</span></div><h3>당신이 자주 찾은 주제</h3><div class="interest-bars">${stats.interests.slice(0, 5).map((interest) => `<div class="interest-bar"><span><em aria-hidden="true">${interest.icon}</em>${escapeHtml(interest.category)}</span><b>${interest.score}%</b><i style="width:${Math.max(interest.score, 2)}%"></i></div>`).join('')}</div><p>영상 제목과 검색어를 바탕으로 정리했습니다.</p></article>
@@ -110,14 +135,16 @@ function renderStats(stats: RecapStats): void {
     <div class="carousel-dots" aria-label="리캡 카드 탐색"></div>
     <details class="analysis-details"><summary class="details-heading"><span class="kicker">DETAIL ANALYSIS</span><strong>상세 분석 보기</strong><span>탭해서 접고 펼치기</span></summary>
     <div class="hero-stat"><span>전체 시청 활동</span><strong>${stats.totalRecords.toLocaleString('ko-KR')}개</strong><small>YouTube 시청 ${stats.videoCount.toLocaleString('ko-KR')} · Music 감상 ${stats.youtubeMusicCount.toLocaleString('ko-KR')} · 게시물 ${stats.communityPostCount.toLocaleString('ko-KR')}</small></div>
+    <section class="detail-section behavior-detail"><div class="section-heading"><div><p class="kicker">BEHAVIOR PROFILE</p><h3>시청 행동 벡터</h3></div><span>5개 행동 축</span></div>${renderBehaviorRadar(stats)}</section>
     <section class="coverage-panel"><div><p class="kicker">DATA COVERAGE</p><h3>기록이 담긴 기간</h3></div><dl><div><dt>시청 기록</dt><dd>${formatRange(stats.coverage.watchStart, stats.coverage.watchEnd)}</dd></div><div><dt>검색 기록</dt><dd>${formatRange(stats.coverage.searchStart, stats.coverage.searchEnd)}</dd></div><div><dt>채널 정보 확인</dt><dd>${percent(stats.coverage.watchChannelCoverage)}</dd></div><div><dt>구독 목록</dt><dd>${stats.coverage.hasSubscriptionData ? '확인됨' : '없음'}</dd></div></dl>${renderCoverageMessage(stats)}</section>
     <div class="stat-grid">
       <article><span>가장 많이 본 채널</span><strong>${escapeHtml(stats.topChannel?.name ?? '채널명 확인 불가')}</strong><small>${stats.topChannel ? `${stats.topChannel.count.toLocaleString('ko-KR')}회 시청` : '채널 정보가 없는 기록입니다'}</small></article>
       <article><span>가장 활발했던 요일</span><strong>${stats.topDay?.name ?? '데이터 부족'}</strong><small>${stats.topDay ? `${stats.topDay.count.toLocaleString('ko-KR')}개 기록` : ''}</small></article>
       <article><span>가장 많이 본 시간대</span><strong>${stats.topHour ? `${stats.topHour.hour}시` : '데이터 부족'}</strong><small>${stats.topHour ? `${stats.topHour.count.toLocaleString('ko-KR')}개 기록` : ''}</small></article>
-      <article><span>새 채널 발견</span><strong>${percent(stats.newChannelRate)}</strong><small>처음 만난 채널의 기록 비율</small></article>
-      <article><span>반복해서 본 영상</span><strong>${percent(stats.repeatedVideoRate)}</strong><small>같은 영상이 다시 등장한 비율</small></article>
+      <article><span>채널 발견률</span><strong>${percent(stats.channelDiscoveryRate)}</strong><small>전체 시청 중 처음 등장한 채널의 시청 비율</small></article>
+      <article><span>반복 시청률</span><strong>${percent(stats.repeatViewRate)}</strong><small>반복 재생에 해당하는 시청 기록 비율</small></article>
       <article><span>채널 다양성</span><strong>${percent(stats.channelDiversity)}</strong><small>채널별 시청 분포 기준</small></article>
+      <article><span>채널 집중도</span><strong>${percent(stats.channelConcentration)}</strong><small>시청이 소수 채널에 모이는 정도</small></article>
       <article><span>하루 최댓값</span><strong>${stats.maxDailyCount.toLocaleString('ko-KR')}개</strong><small>가장 많이 본 하루</small></article>
     </div>
     <div class="detail-grid">

@@ -8,7 +8,8 @@ import type {
   WatchData,
   WatchRecord,
   WatchSession,
-  YouTubeStyleScore,
+  BehaviorDimensionKey,
+  BehaviorProfile,
 } from './types';
 
 const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
@@ -148,52 +149,62 @@ function buildInterests(videos: WatchRecord[], searches: SearchRecord[]): Intere
   }));
 }
 
-function buildStyles(
-  newChannelRate: number,
+function buildBehaviorProfile(
+  channelDiscoveryRate: number,
   channelDiversity: number,
-  hhi: number,
-  repeatedVideoRate: number,
+  channelConcentration: number,
+  repeatViewRate: number,
   searchVariety: number,
   sessions: WatchSession[],
-): YouTubeStyleScore[] {
+  activeDayRate: number,
+): BehaviorProfile {
   const bingeRatio = sessions.length ? sessions.filter((session) => session.videoCount >= 2).length / sessions.length : 0;
   const averageSessionLength = sessions.length
     ? Math.min(sessions.reduce((sum, session) => sum + session.videoCount, 0) / sessions.length / 10, 1)
     : 0;
   const maxSessionLength = sessions.length ? Math.min(Math.max(...sessions.map((session) => session.videoCount)) / 100, 1) : 0;
-  const scores = [
-    {
-      key: 'explorer' as const,
-      label: '콘텐츠 탐험가',
-      icon: '🔭',
-      score: 0.45 * newChannelRate + 0.35 * channelDiversity + 0.2 * searchVariety,
-      description: '새로운 채널과 콘텐츠를 찾아보는 행동이 강합니다.',
-    },
-    {
-      key: 'focused' as const,
-      label: '취향 집중형',
-      icon: '🔁',
-      score: 0.45 * hhi + 0.35 * repeatedVideoRate + 0.2 * (hhi > 0.25 ? hhi : 0),
-      description: '익숙한 채널과 영상을 깊게 다시 찾는 편입니다.',
-    },
-    {
-      key: 'immersive' as const,
-      label: '몰입 시청자',
-      icon: '🔥',
-      score: 0.45 * bingeRatio + 0.3 * averageSessionLength + 0.25 * maxSessionLength,
-      description: '한 번 보기 시작하면 여러 영상을 이어서 보는 편입니다.',
-    },
-    {
-      key: 'variety' as const,
-      label: '다채로운 시청자',
-      icon: '🌊',
-      score: 0.6 * channelDiversity + 0.4 * searchVariety,
-      description: '여러 채널과 검색 주제를 오가며 시청합니다.',
-    },
-  ];
-  return scores
-    .map((style) => ({ ...style, score: Math.round(Math.max(0, Math.min(style.score, 1)) * 100) }))
-    .sort((a, b) => b.score - a.score);
+  const scoreValues: Record<BehaviorDimensionKey, number> = {
+    exploration: 0.45 * channelDiscoveryRate + 0.35 * channelDiversity + 0.2 * searchVariety,
+    focus: 0.7 * channelConcentration + 0.3 * (1 - channelDiversity),
+    repetition: repeatViewRate,
+    immersion: 0.45 * bingeRatio + 0.3 * averageSessionLength + 0.25 * maxSessionLength,
+    regularity: activeDayRate,
+  };
+  const descriptions: Record<BehaviorDimensionKey, { label: string; description: string }> = {
+    exploration: { label: '탐색성', description: '새 채널과 검색 주제를 넓게 발견하는 정도입니다.' },
+    focus: { label: '집중성', description: '소수의 채널과 익숙한 주제에 시청이 모이는 정도입니다.' },
+    repetition: { label: '반복성', description: '같은 영상을 다시 시청하는 정도입니다.' },
+    immersion: { label: '몰입성', description: '한 세션에서 여러 영상을 이어 보는 정도입니다.' },
+    regularity: { label: '규칙성', description: '전체 기간 중 활동일이 꾸준히 이어지는 정도입니다.' },
+  };
+  const evidence: Record<BehaviorDimensionKey, { label: string; value: string }[]> = {
+    exploration: [
+      { label: '채널 발견률', value: `${Math.round(channelDiscoveryRate * 100)}%` },
+      { label: '검색 다양도', value: `${Math.round(searchVariety * 100)}점` },
+    ],
+    focus: [
+      { label: '채널 집중도', value: `${Math.round(channelConcentration * 100)}%` },
+      { label: '채널 다양성', value: `${Math.round(channelDiversity * 100)}점` },
+    ],
+    repetition: [
+      { label: '반복 시청 기록', value: `${Math.round(repeatViewRate * 100)}%` },
+    ],
+    immersion: [
+      { label: '몰아보기 세션', value: `${Math.round(bingeRatio * 100)}%` },
+      { label: '평균 세션 길이', value: `${(sessions.length ? sessions.reduce((sum, session) => sum + session.videoCount, 0) / sessions.length : 0).toFixed(1)}개` },
+    ],
+    regularity: [
+      { label: '관찰 기간 활동률', value: `${Math.round(activeDayRate * 100)}%` },
+    ],
+  };
+  const scores = (Object.keys(scoreValues) as BehaviorDimensionKey[]).map((key) => ({
+    key,
+    label: descriptions[key].label,
+    score: Math.round(Math.max(0, Math.min(scoreValues[key], 1)) * 100),
+    description: descriptions[key].description,
+    evidence: evidence[key],
+  }));
+  return { scores };
 }
 
 export function calculateStats(data: WatchData, searches: SearchRecord[] = []): RecapStats {
@@ -213,7 +224,7 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
   const topHour = highest(hourCounts);
   const channelValues = [...channelCounts.values()];
   const shareTotal = channelValues.reduce((sum, value) => sum + value, 0);
-  const hhi = shareTotal ? channelValues.reduce((sum, value) => sum + (value / shareTotal) ** 2, 0) : 0;
+  const channelConcentration = shareTotal ? channelValues.reduce((sum, value) => sum + (value / shareTotal) ** 2, 0) : 0;
   const firstSeen = new Set<string>();
   let newChannels = 0;
   for (const video of [...videos].sort((a, b) => a.time.getTime() - b.time.getTime())) {
@@ -263,7 +274,11 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
     hasSubscriptionData: data.subscriptionCount > 0,
   };
 
-  const styles = buildStyles(newChannels / Math.max(total, 1), diversity(channelCounts), hhi, total ? repeatedViews / total : 0, searchVariety, sessions);
+  const channelDiscoveryRate = total ? newChannels / total : 0;
+  const repeatViewRate = total ? repeatedViews / total : 0;
+  const watchDays = inclusiveDays(watchRange.start, watchRange.end);
+  const activeDayRate = watchDays > 1 ? activeDateKeys.size / watchDays : 0;
+  const behaviorProfile = buildBehaviorProfile(channelDiscoveryRate, diversity(channelCounts), channelConcentration, repeatViewRate, searchVariety, sessions, activeDayRate);
 
   return {
     totalRecords: videos.length + musicVideos.length + data.communityPosts.length,
@@ -274,10 +289,10 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
     topChannel,
     topDay: highest(dayCounts),
     topHour: topHour ? { hour: Number(topHour.name), count: topHour.count } : null,
-    newChannelRate: total ? newChannels / total : 0,
-    repeatedVideoRate: total ? repeatedViews / total : 0,
+    channelDiscoveryRate,
+    repeatViewRate,
     channelDiversity: diversity(channelCounts),
-    hhi,
+    channelConcentration,
     firstDate: dates[0] ?? null,
     lastDate: dates.at(-1) ?? null,
     youtubeMusicCount: musicVideos.length,
@@ -306,8 +321,7 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
         ? session
         : longest
     ), null),
-    styles,
-    representativeStyle: styles[0] ?? null,
+    behaviorProfile,
     interests: buildInterests(videos, searches),
   };
 }

@@ -64,23 +64,6 @@ export interface WatchSession {
   durationMinutes: number;
 }
 
-export type YouTubeStyleKey = 'explorer' | 'focused' | 'immersive' | 'variety';
-
-export interface YouTubeStyleScore {
-  key: YouTubeStyleKey;
-  label: string;
-  icon: string;
-  score: number;
-  description: string;
-}
-
-export interface InterestScore {
-  category: string;
-  icon: string;
-  score: number;
-  count: number;
-}
-
 export interface RecapStats {
   totalRecords: number;
   videoCount: number;
@@ -113,7 +96,4 @@ export interface RecapStats {
   sessions: WatchSession[];
   bingeSessionCount: number;
   longestSession: WatchSession | null;
-  styles: YouTubeStyleScore[];
-  representativeStyle: YouTubeStyleScore | null;
-  interests: InterestScore[];
 }

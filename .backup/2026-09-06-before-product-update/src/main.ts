@@ -11,29 +11,21 @@ if (!app) throw new Error('앱 루트를 찾을 수 없습니다.');
 app.innerHTML = `
   <main class="shell">
     <section class="intro">
-      <p class="kicker">YOUR PERSONAL YOUTUBE</p>
-      <h1>YouTube<br><em>Me</em></h1>
-      <p class="lede">당신은 YouTube를<br>어떻게 보고 있을까요?</p>
-      <div class="privacy"><span></span> 원본 파일은 이 브라우저 안에서만 분석됩니다</div>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="테마 전환"><span>☼</span> 라이트</button>
+      <p class="kicker">YOUR PERSONAL WATCHING YEAR</p>
+      <h1>YouTube<br><em>Recap</em></h1>
+      <p class="lede">당신의 시청 기록에서 발견한<br>가장 선명한 장면들을 모았습니다.</p>
+      <div class="privacy"><span></span> 파일은 이 브라우저 안에서만 분석됩니다</div>
     </section>
     <section class="workspace">
       <div class="upload-grid single-upload">
         <label class="upload-card primary" for="zip-file">
           <span class="upload-index">01</span>
-          <strong>Google Takeout 가져오기</strong>
-          <small>시청 기록과 검색 기록을 ZIP 안에서 자동으로 찾습니다</small>
+          <strong>Takeout ZIP</strong>
+          <small>시청 기록과 검색 기록을 자동으로 찾습니다</small>
           <input id="zip-file" type="file" accept=".zip,application/zip" />
           <span class="choose">파일 선택 <b>↗</b></span>
         </label>
       </div>
-      <ol class="takeout-steps" aria-label="Google Takeout 가져오기 단계">
-        <li><b>1</b><span><a href="https://takeout.google.com/" target="_blank" rel="noreferrer">Google Takeout 열기 ↗</a></span></li>
-        <li><b>2</b><span>YouTube 및 YouTube Music 선택</span></li>
-        <li><b>3</b><span>기록 포함 확인 후 ZIP 다운로드</span></li>
-        <li><b>4</b><span>이곳에 ZIP 가져오기</span></li>
-      </ol>
-      <p class="takeout-help">Google Takeout에서 <strong>YouTube 및 YouTube Music</strong>만 선택한 뒤, 데이터 형식은 JSON으로 둡니다. 다운로드한 ZIP을 풀지 말고 그대로 가져오면 YouTube Me가 시청 기록, 검색 기록, 구독 목록을 자동으로 찾습니다.</p>
       <p id="status" class="status">시청 기록 파일을 올리면 리캡이 시작됩니다.</p>
       <section id="result" class="result" hidden></section>
     </section>
@@ -76,10 +68,10 @@ function formatDuration(minutes: number): string {
 function renderRhythm(stats: RecapStats): string {
   const maximum = Math.max(...stats.rhythm.map((cell) => cell.count), 0);
   if (!maximum) return '<p class="empty-detail">시청 리듬을 계산할 영상 기록이 없습니다.</p>';
-  return `<div class="rhythm-layout"><div class="rhythm-days" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rhythm-grid" role="img" aria-label="요일과 시간대별 시청 기록 분포">${stats.rhythm.map((cell) => {
+  return `<div class="rhythm-labels"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="rhythm-grid" role="img" aria-label="요일과 시간대별 시청 기록 분포">${stats.rhythm.map((cell) => {
     const intensity = cell.count ? Math.max(16, Math.round((cell.count / maximum) * 100)) : 0;
     return `<span class="rhythm-cell" style="--intensity:${intensity}%" title="${dayNames[cell.day]} ${cell.hour}시: ${cell.count}개"></span>`;
-  }).join('')}<div class="rhythm-hours"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>24시</span></div></div></div>`;
+  }).join('')}</div><div class="rhythm-hours"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>24시</span></div>`;
 }
 
 function renderCoverageMessage(stats: RecapStats): string {
@@ -100,14 +92,6 @@ function renderStats(stats: RecapStats): void {
   result.hidden = false;
   result.innerHTML = `
     <div class="result-head"><div><p class="kicker">YOUR WATCHING RECEIPT</p><h2>이번 기록에서<br><em>보이는 것들</em></h2></div><p class="date-range">${formatDate(stats.firstDate)}<br>— ${formatDate(stats.lastDate)}</p></div>
-    <section class="recap-cards">
-      <article class="recap-card style-card"><div class="card-topline"><p class="kicker">YOUR YOUTUBE TYPE</p><span class="card-number">01</span></div><h3>${escapeHtml(stats.representativeStyle?.label ?? '데이터 부족')}</h3><strong>${stats.representativeStyle ? `${stats.representativeStyle.score}점` : '계산 불가'}</strong><p>${escapeHtml(stats.representativeStyle?.description ?? '유형을 계산할 수 있는 시청 기록이 없습니다.')}</p><div class="evidence-list"><span>채널 다양성 <b>${percent(stats.channelDiversity)}</b></span><span>새 채널 발견 <b>${percent(stats.newChannelRate)}</b></span><span>반복 시청 <b>${percent(stats.repeatedVideoRate)}</b></span></div></article>
-      <article class="recap-card rhythm-card"><div class="card-topline"><p class="kicker">YOUR RHYTHM</p><span class="card-number">02</span></div><h3>YouTube를 가장 많이<br>보는 시간</h3><strong>${stats.topHour ? `${stats.topHour.hour}:00` : '데이터 부족'}</strong><p>${stats.topDay ? `특히 ${escapeHtml(stats.topDay.name)}에 활동이 많습니다.` : '요일 데이터가 없습니다.'}</p><div class="rhythm-callout"><span>가장 활발한 요일</span><b>${stats.topDay?.name ?? '데이터 부족'}</b></div></article>
-      <article class="recap-card replay-card"><div class="card-topline"><p class="kicker">YOUR REPLAY</p><span class="card-number">03</span></div><h3>당신이 다시 찾은 영상</h3><strong>${stats.topVideos[0] ? escapeHtml(stats.topVideos[0].title) : '데이터 부족'}</strong><p>${stats.topVideos[0] ? `${stats.topVideos[0].count.toLocaleString('ko-KR')}회 다시 봤습니다 · ${escapeHtml(stats.topVideos[0].channelName ?? '채널 정보 없음')}` : '반복 시청 기록이 없습니다.'}</p></article>
-      <article class="recap-card binge-card"><div class="card-topline"><p class="kicker">YOUR BINGE</p><span class="card-number">04</span></div><h3>한 번에 이어서 본<br>가장 긴 세션</h3><strong>${stats.longestSession ? `${stats.longestSession.videoCount}개` : '데이터 부족'}</strong><p>${stats.longestSession ? `영상 ${stats.longestSession.videoCount}개를 연달아 봤습니다.` : '세션 데이터가 없습니다.'}</p><div class="binge-line"><i></i><i></i><i></i><i></i><i></i><b>${stats.bingeSessionCount.toLocaleString('ko-KR')}개 몰아보기 세션</b></div></article>
-      <article class="recap-card interest-card"><div class="card-topline"><p class="kicker">YOUR INTERESTS</p><span class="card-number">05</span></div><h3>당신이 자주 찾은 주제</h3><div class="interest-bars">${stats.interests.slice(0, 5).map((interest) => `<div class="interest-bar"><span><em aria-hidden="true">${interest.icon}</em>${escapeHtml(interest.category)}</span><b>${interest.score}%</b><i style="width:${Math.max(interest.score, 2)}%"></i></div>`).join('')}</div><p>영상 제목과 검색어를 바탕으로 정리했습니다.</p></article>
-    </section>
-    <details class="analysis-details"><summary class="details-heading"><span class="kicker">DETAIL ANALYSIS</span><strong>상세 분석 보기</strong><span>탭해서 접고 펼치기</span></summary>
     <div class="hero-stat"><span>전체 시청 활동</span><strong>${stats.totalRecords.toLocaleString('ko-KR')}개</strong><small>YouTube 시청 ${stats.videoCount.toLocaleString('ko-KR')} · Music 감상 ${stats.youtubeMusicCount.toLocaleString('ko-KR')} · 게시물 ${stats.communityPostCount.toLocaleString('ko-KR')}</small></div>
     <section class="coverage-panel"><div><p class="kicker">DATA COVERAGE</p><h3>기록이 담긴 기간</h3></div><dl><div><dt>시청 기록</dt><dd>${formatRange(stats.coverage.watchStart, stats.coverage.watchEnd)}</dd></div><div><dt>검색 기록</dt><dd>${formatRange(stats.coverage.searchStart, stats.coverage.searchEnd)}</dd></div><div><dt>채널 정보 확인</dt><dd>${percent(stats.coverage.watchChannelCoverage)}</dd></div><div><dt>구독 목록</dt><dd>${stats.coverage.hasSubscriptionData ? '확인됨' : '없음'}</dd></div></dl>${renderCoverageMessage(stats)}</section>
     <div class="stat-grid">
@@ -149,23 +133,11 @@ function renderStats(stats: RecapStats): void {
       </section>
     </div>
     <div class="music-highlight"><p class="kicker">YOUTUBE MUSIC</p><h3>가장 많이 들은 음악</h3><strong>${stats.topMusic ? escapeHtml(stats.topMusic.title) : '음악 기록 없음'}</strong><small>${stats.topMusic ? `${escapeHtml(stats.topMusic.channelName ?? '아티스트 정보 없음')} · ${stats.topMusic.count.toLocaleString('ko-KR')}회 감상` : 'YouTube Music 기록이 없습니다.'}</small></div>
-    <div class="notes"><p><b>${stats.shortCount.toLocaleString('ko-KR')}</b>개의 Shorts는 제목의 #shorts 표식을 기준으로 YouTube 시청 통계에 포함되어 있습니다.</p><p>${searchLabel || 'ZIP 안에서 검색 기록을 찾지 못했습니다.'}</p><p>Takeout에는 실제 재생 시간이 없어 총 시청 시간은 계산하지 않습니다. Live·광고 여부와 관심사 카테고리도 확인할 수 없습니다.</p></div></details>
+    <div class="notes"><p><b>${stats.shortCount.toLocaleString('ko-KR')}</b>개의 Shorts는 제목의 #shorts 표식을 기준으로 YouTube 시청 통계에 포함되어 있습니다.</p><p>${searchLabel || 'ZIP 안에서 검색 기록을 찾지 못했습니다.'}</p><p>Takeout에는 실제 재생 시간이 없어 총 시청 시간은 계산하지 않습니다. Live·광고 여부와 관심사 카테고리도 확인할 수 없습니다.</p></div>
     <button class="reset" type="button">다시 분석하기</button>
   `;
   result.querySelector<HTMLButtonElement>('.reset')?.addEventListener('click', () => window.location.reload());
 }
-
-function setTheme(theme: 'light' | 'dark'): void {
-  document.documentElement.dataset.theme = theme;
-  const button = document.querySelector<HTMLButtonElement>('#theme-toggle');
-  if (button) button.innerHTML = theme === 'dark' ? '<span>☾</span> 다크' : '<span>☼</span> 라이트';
-  localStorage.setItem('youtube-me-theme', theme);
-}
-
-setTheme(localStorage.getItem('youtube-me-theme') === 'dark' ? 'dark' : 'light');
-document.querySelector<HTMLButtonElement>('#theme-toggle')?.addEventListener('click', () => {
-  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-});
 
 async function readFile(input: HTMLInputElement): Promise<string | null> {
   const file = input.files?.[0];

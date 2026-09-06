@@ -4,11 +4,9 @@ import type {
   RecapStats,
   RhythmCell,
   SearchRecord,
-  InterestScore,
   WatchData,
   WatchRecord,
   WatchSession,
-  YouTubeStyleScore,
 } from './types';
 
 const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
@@ -91,111 +89,6 @@ function buildSessions(videos: WatchRecord[]): WatchSession[] {
   return sessions;
 }
 
-function searchDiversity(searches: SearchRecord[]): number {
-  const counts = countBy(searches, (search) => search.query.trim().toLocaleLowerCase());
-  return diversity(counts);
-}
-
-const interestRules = [
-  { category: '게임', icon: '🎮', keywords: ['게임', '좀보이드', '마인크래프트', 'minecraft', '롤', '리그 오브 레전드', '배틀그라운드', '스팀', 'game'] },
-  { category: '음악', icon: '🎵', keywords: ['노래', 'cover', '가사', 'lyrics', 'k-pop', 'kpop', '아이돌', '뮤직', 'music', 'n mixx', 'nmixx'] },
-  { category: '역사', icon: '📚', keywords: ['역사', '조선', '고려', '삼국지', '전쟁', 'war', 'history'] },
-  { category: '영화·드라마', icon: '🎬', keywords: ['영화', '드라마', '예고편', 'marvel', '넷플릭스', 'netflix', 'trailer'] },
-  { category: 'IT·AI', icon: '💻', keywords: ['it', 'ai', '인공지능', '코딩', '개발', '프로그래밍', '리뷰', '테크', 'tech'] },
-  { category: '교육', icon: '🧠', keywords: ['공부', '강의', '강좌', '수학', '영어', '교육', 'tutorial', 'lecture'] },
-  { category: '스포츠', icon: '⚽', keywords: ['축구', '야구', '농구', '스포츠', '골프', 'football', 'baseball'] },
-] as const;
-
-function classifyInterest(text: string): number {
-  const normalized = text.toLocaleLowerCase();
-  return interestRules.findIndex((rule) => rule.keywords.some((keyword) => normalized.includes(keyword)));
-}
-
-function buildInterests(videos: WatchRecord[], searches: SearchRecord[]): InterestScore[] {
-  const watchCounts = interestRules.map(() => 0);
-  const searchCounts = interestRules.map(() => 0);
-  const replayCounts = interestRules.map(() => 0);
-  const videoIdCounts = countBy(videos, (video) => video.videoId ?? video.title);
-
-  videos.forEach((video) => {
-    const category = classifyInterest(video.title);
-    if (category >= 0) {
-      watchCounts[category] += 1;
-      if ((videoIdCounts.get(video.videoId ?? video.title) ?? 0) > 1) replayCounts[category] += 1;
-    }
-  });
-  searches.forEach((search) => {
-    const category = classifyInterest(search.query);
-    if (category >= 0) searchCounts[category] += 1;
-  });
-
-  const totalWatch = watchCounts.reduce((sum, count) => sum + count, 0);
-  const totalSearch = searchCounts.reduce((sum, count) => sum + count, 0);
-  const totalReplay = replayCounts.reduce((sum, count) => sum + count, 0);
-  const scores: InterestScore[] = interestRules.map((rule, index) => ({
-    category: rule.category,
-    icon: rule.icon,
-    score: 0.6 * (totalWatch ? watchCounts[index] / totalWatch : 0)
-      + 0.25 * (totalSearch ? searchCounts[index] / totalSearch : 0)
-      + 0.15 * (totalReplay ? replayCounts[index] / totalReplay : 0),
-    count: watchCounts[index],
-  }));
-  const classifiedCount = scores.reduce((sum, item) => sum + item.count, 0);
-  if (videos.length > classifiedCount) scores.push({ category: '기타', icon: '•', score: 0, count: videos.length - classifiedCount });
-  return scores.sort((a, b) => b.score - a.score || b.count - a.count).slice(0, 5).map((item) => ({
-    ...item,
-    score: Math.round(item.score * 100),
-  }));
-}
-
-function buildStyles(
-  newChannelRate: number,
-  channelDiversity: number,
-  hhi: number,
-  repeatedVideoRate: number,
-  searchVariety: number,
-  sessions: WatchSession[],
-): YouTubeStyleScore[] {
-  const bingeRatio = sessions.length ? sessions.filter((session) => session.videoCount >= 2).length / sessions.length : 0;
-  const averageSessionLength = sessions.length
-    ? Math.min(sessions.reduce((sum, session) => sum + session.videoCount, 0) / sessions.length / 10, 1)
-    : 0;
-  const maxSessionLength = sessions.length ? Math.min(Math.max(...sessions.map((session) => session.videoCount)) / 100, 1) : 0;
-  const scores = [
-    {
-      key: 'explorer' as const,
-      label: '콘텐츠 탐험가',
-      icon: '🔭',
-      score: 0.45 * newChannelRate + 0.35 * channelDiversity + 0.2 * searchVariety,
-      description: '새로운 채널과 콘텐츠를 찾아보는 행동이 강합니다.',
-    },
-    {
-      key: 'focused' as const,
-      label: '취향 집중형',
-      icon: '🔁',
-      score: 0.45 * hhi + 0.35 * repeatedVideoRate + 0.2 * (hhi > 0.25 ? hhi : 0),
-      description: '익숙한 채널과 영상을 깊게 다시 찾는 편입니다.',
-    },
-    {
-      key: 'immersive' as const,
-      label: '몰입 시청자',
-      icon: '🔥',
-      score: 0.45 * bingeRatio + 0.3 * averageSessionLength + 0.25 * maxSessionLength,
-      description: '한 번 보기 시작하면 여러 영상을 이어서 보는 편입니다.',
-    },
-    {
-      key: 'variety' as const,
-      label: '다채로운 시청자',
-      icon: '🌊',
-      score: 0.6 * channelDiversity + 0.4 * searchVariety,
-      description: '여러 채널과 검색 주제를 오가며 시청합니다.',
-    },
-  ];
-  return scores
-    .map((style) => ({ ...style, score: Math.round(Math.max(0, Math.min(style.score, 1)) * 100) }))
-    .sort((a, b) => b.score - a.score);
-}
-
 export function calculateStats(data: WatchData, searches: SearchRecord[] = []): RecapStats {
   const videos = data.videos.filter((video) => video.service === 'YouTube');
   const musicVideos = data.videos.filter((video) => video.service === 'YouTube Music');
@@ -241,7 +134,6 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
     };
   });
   const searchCounts = countBy(searches, (search) => search.query);
-  const searchVariety = searchDiversity(searches);
   const musicCounts = countBy(musicVideos, (video) => video.videoId ?? video.title);
   const topMusicItem = highest(musicCounts);
   const topMusicVideo = topMusicItem
@@ -262,8 +154,6 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
     hasSearchData: searches.length > 0,
     hasSubscriptionData: data.subscriptionCount > 0,
   };
-
-  const styles = buildStyles(newChannels / Math.max(total, 1), diversity(channelCounts), hhi, total ? repeatedViews / total : 0, searchVariety, sessions);
 
   return {
     totalRecords: videos.length + musicVideos.length + data.communityPosts.length,
@@ -306,8 +196,5 @@ export function calculateStats(data: WatchData, searches: SearchRecord[] = []): 
         ? session
         : longest
     ), null),
-    styles,
-    representativeStyle: styles[0] ?? null,
-    interests: buildInterests(videos, searches),
   };
 }
